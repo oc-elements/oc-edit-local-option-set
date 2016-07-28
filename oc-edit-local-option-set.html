@@ -1,0 +1,103 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../oc-product-option-api/oc-product-option-api.html">
+<link rel="import" href="../oc-edit-option-set/oc-edit-option-set.html">
+
+<!--
+`oc-edit-local-option-set`
+Element used to edit a local option set
+
+@demo demo/index.html 
+-->
+
+<dom-module id="oc-edit-local-option-set">
+  <style>
+    :host {
+      display: block;
+    }
+  </style>
+
+  <template>
+    <oc-product-option-api id="optionsApi"></oc-product-option-api>
+    <oc-edit-option-set
+            id="editOptionSetControl"
+            on-save-option-set="_onSaveOptionSet"
+            on-create-option="_onCreateOption"
+            on-delete-option="_onDeleteOption"
+    ></oc-edit-option-set>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'oc-edit-local-option-set',
+
+      properties: {
+        organisationId: Number,
+        optionSetId: Number,
+        loading: {
+          type: Boolean,
+          value: false,
+          notify: true
+        }
+      },
+
+      observers: [
+        '_loadOptionSet(organisationId,optionSetId)'
+      ],
+
+      _loadOptionSet: function() {
+        if (this.organisationId) {
+          this.loading = true;
+          this.$.optionsApi.getOptionSet(this.optionSetId)
+                  .then(function (request) {
+                    this.$.editOptionSetControl.setOptionSet(request.response);
+                    this.$.editOptionSetControl.setOptions(request.response.options);
+                  }.bind(this))
+                  .catch(this.fire.bind(this, 'options_error', 'Could not load Option Set'))
+                  .finally(this.set.bind(this, 'loading', false));
+        }
+      },
+
+      _onSaveOptionSet: function(event) {
+        this.loading = true;
+        this.$.optionsApi.updateOptionSet(this.optionSetId, event.detail)
+                .catch(this.fire.bind(this, 'options_error', 'Could not update option set'))
+                .finally(this.set.bind(this, 'loading', false));
+      },
+
+      _onCreateOption: function(event) {
+        this.loading = true;
+        this.$.optionsApi.createOption(this.organisationId,
+                {
+                  name: event.detail.name,
+                  price: event.detail.price,
+                  description: event.detail.description,
+                  setId: this.optionSetId,
+                  itemsPluFlatMappingEnabled: false})
+                .then(function() {this._refreshOptions()}.bind(this))
+                .catch(this.fire.bind(this, 'options_error', 'Could not update option set'))
+      },
+
+      _refreshOptions: function() {
+        this.loading = true;
+        this.$.optionsApi.getOptionSet(this.optionSetId)
+                .then(function(request) {
+                  this.$.editOptionSetControl.setOptions(request.response.options);
+                }.bind(this))
+                .catch(this.fire.bind(this, 'options_error', 'Could not update option set'))
+                .finally(function () {
+                  this.$.editOptionSetControl.showNewOptionInput(false);
+                  this.loading = false;
+                }.bind(this));
+      },
+
+      _onDeleteOption: function(event) {
+        this.loading = true;
+        this.$.optionsApi.deleteOption(event.detail.id)
+                .then(function () {
+                  this._refreshOptions();
+                }.bind(this))
+                .catch(this.fire.bind(this, 'options_error', 'Could not delete option'))
+      }
+    });
+  </script>
+</dom-module>
